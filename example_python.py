@@ -1,16 +1,19 @@
-from integration import BatchType, File, Integrator, StatusDocument, SearchParameters
+from nebuia_copilot_python import integration
 from loguru import logger
 
-integrator = Integrator(with_base='http://nebuia.instance/api/v1', key='api_key',
-                        secret='api_secret')
+from nebuia_copilot_python.src.models import BatchType, File, SearchParameters, StatusDocument
+
+integrator = integration.Integrator(with_base='http://nebuia.instance/api/v1', key='api_key',
+                                    secret='api_secret')
 
 files = [File(
-    file="https://domain.com/file.pdf",
+    file="https://domain.com/file.pdf", # "/path/to/file.pdf", bytes
     type_document="uuid_type_document"
 )]
 
 # perform search on custom brain
-results = integrator.search_in_brain(search_params=SearchParameters(batch="brain_id", param="gripa", k=2, type_search="semantic"))
+results = integrator.search_in_brain(search_params=SearchParameters(
+    batch="brain_id", param="gripa", k=2, type_search="semantic"))
 logger.info(results)
 
 # get documents by status (supports pagination)
@@ -47,11 +50,13 @@ for doc_type in document_types:
     logger.info(f"{doc_type.key}: {doc_type.id_type_document}")
 
 # create new batch
-status, batch_id = integrator.create_batch("name_batch", batch_type=BatchType.TESTING)
+status, batch_id = integrator.create_batch(
+    "name_batch", batch_type=BatchType.TESTING)
 logger.info(status, batch_id)
 
 # listener example
-listener = integrator.add_listener(status=StatusDocument.WAITING_QA, interval=4, limit_documents=20)
+listener = integrator.add_listener(
+    status=StatusDocument.WAITING_QA, interval=4, limit_documents=20)
 try:
     for documents in listener.results():
         data = documents.documents
