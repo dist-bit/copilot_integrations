@@ -1,9 +1,12 @@
+from nebuia_copilot_python.src.listener.listener import Listener
 from typing import Dict, List
+import atexit
 
 from loguru import logger
 
-from api_client import APIClient
-from models import BatchDocumentsResponse, BatchType, DocumentType, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.listener.manager import ListenerManager
+from nebuia_copilot_python.src.api_client import APIClient
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, DocumentType, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
 
 
 class Integrator:
@@ -30,6 +33,33 @@ class Integrator:
             base=with_base
         )
 
+        self.listener_manager = ListenerManager(self.api_client)
+        atexit.register(self.cleanup)
+
+    def cleanup(self):
+        """
+        Perform cleanup operations before the program exits.
+
+        This method is intended to be registered with atexit to ensure proper
+        shutdown of all listeners when the program terminates. It stops all
+        active listeners managed by the ListenerManager.
+
+        The method performs the following actions:
+        1. Prints a message indicating that listeners are being stopped.
+        2. Calls the stop_all_listeners method of the ListenerManager to
+        gracefully shut down all active listeners.
+
+        Note:
+            This method should be registered with atexit to ensure it's called
+            automatically when the program exits, even in case of unexpected
+            termination.
+
+        Example:
+            import atexit
+            atexit.register(self.cleanup)
+        """
+        logger.warning("Stopping all listeners...")
+        self.listener_manager.stop_all_listeners()
 
     def create_batch(self, name_batch: str, batch_type: BatchType):
         """
@@ -90,7 +120,6 @@ class Integrator:
         job = Job(files=files)
         response = self.api_client.append_job(job, batch_id)
         return response
-    
 
     def get_document_types(self) -> List[DocumentType]:
         """
@@ -124,7 +153,6 @@ class Integrator:
             APIClient.get_document_types: For details on the underlying API call.
         """
         return self.api_client.get_document_types()
-
 
     def get_documents_by_batch_id(self, batch_id: str) -> BatchDocumentsResponse:
         """
@@ -171,7 +199,6 @@ class Integrator:
             Entity: For the structure of each entity object within a document.
         """
         return self.api_client.get_documents_by_batch(batch_id)
-    
 
     def delete_document(self, uuid: str) -> bool:
         """
@@ -197,7 +224,6 @@ class Integrator:
             True
         """
         return self.api_client.delete_document_from_batch(uuid=uuid)
-    
 
     def clear_document_by_uuid(self, uuid: str) -> bool:
         """
@@ -224,7 +250,6 @@ class Integrator:
         """
         return self.api_client.clear_document_by_uuid(uuid=uuid)
 
-
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
         Retrieves a batch of documents based on their status.
@@ -247,7 +272,6 @@ class Integrator:
             APIException: If there is an error while communicating with the API.
         """
         return self.api_client.get_documents_by_status(status=status, page=page, limit=limit)
-    
 
     def delete_batch(self, batch_id) -> bool:
         """
@@ -264,7 +288,6 @@ class Integrator:
             bool: True if the batch was successfully deleted, False otherwise.
         """
         return self.api_client.delete_batch(batch_id)
-    
 
     def search_in_brain(self, search_params: SearchParameters) -> ResultsSearch:
         """
@@ -288,7 +311,6 @@ class Integrator:
                 network issues, invalid parameters, or service unavailability.
         """
         return self.api_client.search_in_brain(search_params=search_params)
-    
 
     def process_document_in_batch(self, batch_id: str):
         """
@@ -309,3 +331,71 @@ class Integrator:
             JSONDecodeError: If the response content cannot be decoded as JSON.
         """
         return self.api_client.process_item(batch_id=batch_id)
+
+    def add_listener(self, status: StatusDocument, interval: int, limit_documents: int) -> Listener:
+        """
+        Add a new listener to the listener manager.
+
+        This method creates and starts a new Listener instance through the ListenerManager.
+        The new listener will periodically fetch documents with the specified status.
+
+        Args:
+            status (StatusDocument): The status of documents to be fetched by the new listener.
+            interval (int): The time interval (in seconds) between each fetch operation.
+            limit_documents (int): The maximum number of documents to fetch in each operation.
+
+        Returns:
+            Listener: The newly created and started Listener instance.
+
+        Note:
+            This method delegates the creation and management of the listener to the
+            ListenerManager instance. The returned Listener is already started and
+            added to the list of managed listeners.
+
+        Example:
+            >>> # Creating a new listener
+            >>> listener = integrator.add_listener(StatusDocument.WAITING_QA, 4, limit_documents=20)
+            >>> 
+            >>> # Using the listener to process documents
+            >>> try:
+            ...     for documents in listener.results():
+            ...         data = documents.documents
+            ...         for document in data:
+            ...             print("Received documents:", document.file_name)
+            ... except KeyboardInterrupt:
+            ...     listener.stop()
+            ...     print("Stopped listener.")
+            Received documents: document1.pdf
+            Received documents: document2.pdf
+            Stopped listener.
+
+        This example demonstrates creating a listener for documents with WAITING_QA status,
+        checking every 4 seconds, and limiting to 20 documents per fetch. It then processes
+        the results in a loop, printing the file names of received documents. The loop can
+        be interrupted with a KeyboardInterrupt, which will stop the listener.
+        """
+        return self.listener_manager.add_listener(status=status, interval=interval, limit_documents=limit_documents)
+
+
+    def set_document_status(self, uuid: str, status: StatusDocument) -> bool:
+        """
+        Set the status of a document identified by its UUID.
+
+        This method delegates the task of setting the document status to the API client,
+        passing the document's UUID and the new status as arguments.
+
+        Args:
+            uuid (str): The UUID of the document whose status is to be updated.
+            status (StatusDocument): The new status to be set for the document.
+
+        Returns:
+            bool: True if the status was successfully updated, False otherwise.
+
+        Raises:
+            APIException: If there is an issue with the API client.
+
+        Example:
+            >>> set_document_status('123e4567-e89b-12d3-a456-426614174000', StatusDocument.APPROVED)
+            True
+        """
+        return self.api_client.set_document_status(uuid=uuid, status=status)

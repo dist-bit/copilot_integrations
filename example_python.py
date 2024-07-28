@@ -6,7 +6,7 @@ integrator = Integrator(with_base='http://nebuia.instance/api/v1', key='api_key'
 
 files = [File(
     file="https://domain.com/file.pdf",
-    type_document="7d6528a4-2ad9-437c-9a32-bd1b869c0388"
+    type_document="uuid_type_document"
 )]
 
 # perform search on custom brain
@@ -49,3 +49,17 @@ for doc_type in document_types:
 # create new batch
 status, batch_id = integrator.create_batch("name_batch", batch_type=BatchType.TESTING)
 logger.info(status, batch_id)
+
+# listener example
+listener = integrator.add_listener(status=StatusDocument.WAITING_QA, interval=4, limit_documents=20)
+try:
+    for documents in listener.results():
+        data = documents.documents
+        for document in data:
+            logger.info(f"Received documents: {document.uuid}")
+            # set to complete
+            # integrator.set_document_status(document.uuid, StatusDocument.COMPLETE)
+            break
+except KeyboardInterrupt:
+    listener.stop()
+    logger.warning("Stopped listener.")

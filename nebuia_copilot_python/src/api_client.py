@@ -4,7 +4,7 @@ import time
 from typing import ChainMap, Dict, List
 import requests
 from loguru import logger
-from models import BatchDocumentsResponse, BatchType, Document, DocumentType, Entity, File, Job, Response, Result, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, Entity, File, Job, Response, Result, ResultsSearch, SearchParameters, StatusDocument, UploadResult
 from requests_toolbelt import MultipartEncoder
 
 
@@ -17,6 +17,34 @@ class APIClient:
             "key": self.key,
             "secret": self.secret
         }
+
+
+    def set_document_status(self, uuid: str, status: StatusDocument) -> bool:
+        """
+        Set the status of a document identified by its UUID.
+
+        This method updates the status of a document in the system by making a GET request
+        to the specified URL with the document's UUID and the new status.
+
+        Args:
+            uuid (str): The UUID of the document whose status is to be updated.
+            status (StatusDocument): The new status to be set for the document.
+
+        Returns:
+            bool: True if the status was successfully updated, False otherwise.
+
+        Raises:
+            requests.exceptions.RequestException: If there is an issue with the network request.
+            ValueError: If the response JSON does not contain a 'status' key.
+
+        Example:
+            >>> set_document_status('uuid_document', StatusDocument.APPROVED)
+            True
+        """
+        url = f"{self.base_url}/integrator/documents/set/status/{uuid}/{status.value}"
+        response = requests.get(url, headers=self.headers)
+        data = response.json()
+        return data['status']
 
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
@@ -87,7 +115,6 @@ class APIClient:
                         doc_data['uploaded'].rstrip('Z')),
                     reviewed_at=datetime.fromisoformat(
                         doc_data['reviewed_at'].rstrip('Z')),
-                    credit_number=doc_data['credit_number'],
                     source_type=doc_data['source_type'],
                     entities=entities
                 )
@@ -136,8 +163,7 @@ class APIClient:
             The 'entities' field in each document is optional and will be included
             only if present in the API response.
         """
-        url = f"{
-            self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
+        url = f"{self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -181,7 +207,6 @@ class APIClient:
                         doc_data['uploaded'].rstrip('Z')),
                     reviewed_at=datetime.fromisoformat(
                         doc_data['reviewed_at'].rstrip('Z')),
-                    credit_number=doc_data['credit_number'],
                     source_type=doc_data['source_type'],
                     entities=entities
                 )

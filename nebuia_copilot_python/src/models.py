@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 import enum
 import os
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 from urllib.parse import urlparse
 import magic
 
-from utils import check_downloadable_file
+from nebuia_copilot_python.src.utils import check_downloadable_file
 
 
 class BatchType(enum.Enum):
@@ -17,7 +17,9 @@ class BatchType(enum.Enum):
 class StatusDocument(enum.Enum):
     WAITING_PROCESS = "waiting_process"
     WORKING_OCR = "working_extractor"
+    
     PROCESSED = "processed"
+    COMPLETE = "complete"
 
     ERROR_LINK = "error_download_link"
     ERROR_OCR = "error_on_extraction"
