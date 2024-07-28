@@ -19,8 +19,8 @@ class StatusDocument(enum.Enum):
     WORKING_OCR = "working_extractor"
     PROCESSED = "processed"
 
-    ERROR_LINK = "error_google_link"
-    ERROR_OCR = "error_document_ocr"
+    ERROR_LINK = "error_download_link"
+    ERROR_OCR = "error_on_extraction"
 
     ASSIGNED = "assigned"
     WAITING_QA = "waiting_qa"
