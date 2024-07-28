@@ -10,7 +10,7 @@ files = [File(
 )]
 
 # perform search on custom brain
-results = integrator.search_in_brain(search_params=SearchParameters(batch="brain_id", param="gripa", k=2, type_search="literal"))
+results = integrator.search_in_brain(search_params=SearchParameters(batch="brain_id", param="gripa", k=2, type_search="semantic"))
 logger.info(results)
 
 # get documents by status (supports pagination)
@@ -31,14 +31,15 @@ for doc in documents.documents:
     print(f"Document: {doc.file_name}, Status: {doc.status_document}")
 
 # add files to batch id
-results = integrator.append_to_batch("batch_id", files=files)
-
+results = integrator.append_to_batch(batch_id="66a5271a7a97c83cece5dd0d", files=files)
 if len(results['failed']) > 0:
     for result in results['failed']:
-        logger.info(result.message)
-        logger.info(result.response)
+        logger.info(result.file_name)
+        logger.info(result.error_message)
 else:
-    logger.info("done")
+    for result in results['successful']:
+        logger.info(result.file_name)
+        logger.info(result.uuid)
 
 # get documents types
 document_types = integrator.get_document_types()

@@ -5,7 +5,8 @@ import os
 from typing import Any, Dict, List, Literal, Optional, Union
 from urllib.parse import urlparse
 import magic
-import requests
+
+from utils import check_downloadable_file
 
 
 class BatchType(enum.Enum):
@@ -51,6 +52,7 @@ class File:
         type_document (str): The id of type document.
         filename (Optional[str]): The filename, if provided. If not, it is inferred from the file data.
     """
+
     def __init__(self, file: Union[str, bytes], type_document: str, filename: Optional[str] = None):
         """
         Initializes a new instance of the File class.
@@ -98,11 +100,10 @@ class File:
         """
         if isinstance(self.file, str):
             if self.file.startswith('http'):
-                response = requests.get(self.file)
-                response.raise_for_status()
-                self.mime_type = magic.from_buffer(
-                    response.content[:8], mime=True)
-                return response.content
+                url, mime_type = check_downloadable_file(self.file)
+                if url != None:
+                    self.mime_type = mime_type
+                    return url
             else:
                 with open(self.file, 'rb') as f:
                     file_data = f.read()
@@ -139,12 +140,13 @@ class File:
 class Job:
     files: List[File]
 
+
 @dataclass
 class UploadResult:
     success: bool
     file_name: str
-    message: str
-    response: Dict[str, Any]
+    uuid: Optional[str] = None
+    error_message: Optional[str] = None
 
 
 @dataclass
@@ -154,6 +156,7 @@ class DocumentType:
     key: str
     id_type_document: str
     created: datetime
+
 
 @dataclass
 class Entity:
@@ -174,6 +177,7 @@ class Entity:
     page: int
     id_core: str
     is_valid: bool
+
 
 @dataclass
 class Document:
@@ -207,6 +211,7 @@ class Document:
     source_type: str
     entities: Optional[List[Entity]] = None
 
+
 @dataclass
 class BatchDocumentsResponse:
     """
@@ -218,6 +223,7 @@ class BatchDocumentsResponse:
     """
     documents: List[Document]
     total: int
+
 
 @dataclass
 class SearchParameters:
@@ -254,6 +260,7 @@ class Result:
     source: Union[int, str]
     coincidences: int
     score: float
+
 
 @dataclass
 class ResultsSearch:

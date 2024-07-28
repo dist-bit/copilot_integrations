@@ -18,7 +18,6 @@ class APIClient:
             "secret": self.secret
         }
 
-
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
         Fetches a batch of documents based on their status from the API.
@@ -43,7 +42,8 @@ class APIClient:
             KeyError: If there is an error parsing the response data due to missing keys.
             ValueError: If there is an error parsing the response data due to invalid values.
         """
-        url = f"{self.base_url}/integrator/documents/by/status/{status.value}?page={page}&limit={limit}"
+        url = f"{self.base_url}/integrator/documents/by/status/{
+            status.value}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -104,8 +104,7 @@ class APIClient:
 
         except (KeyError, ValueError) as e:
             logger.error(f"Error parsing response data: {e}")
-            raise 
-
+            raise
 
     def get_documents_by_batch(self, id_batch: str, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
@@ -137,7 +136,8 @@ class APIClient:
             The 'entities' field in each document is optional and will be included
             only if present in the API response.
         """
-        url = f"{self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
+        url = f"{
+            self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -200,7 +200,6 @@ class APIClient:
             logger.error(f"Error parsing response data: {e}")
             raise
 
-    
     def clear_document_by_uuid(self, uuid: str) -> bool:
         """
         Clears a document from the system using its unique identifier (UUID).
@@ -228,7 +227,6 @@ class APIClient:
         response = requests.get(url, headers=self.headers)
         data = response.json()
         return data['status']
-    
 
     def delete_batch(self, batch_id: str) -> bool:
         """
@@ -253,7 +251,6 @@ class APIClient:
         response = requests.delete(url, headers=self.headers)
         data = response.json()
         return data['status']
-
 
     def delete_document_from_batch(self, uuid: str) -> bool:
         """
@@ -386,15 +383,25 @@ class APIClient:
         for attempt in range(max_retries):
             try:
                 file_data = file.get_file_data()
-                mime_type = file.get_mime_type()
                 file_name = file.get_filename()
+                mime_type = file.get_mime_type()
 
-                m = MultipartEncoder(
-                    fields={
-                        'file': (file_name, file_data, mime_type),
-                        'type_document': file.type_document
-                    }
-                )
+                if not isinstance(file_data, str):
+                    m = MultipartEncoder(
+                        fields={
+                            'file': (file_name, file_data, mime_type),
+                            'type_document': file.type_document
+                        }
+                    )
+                else:
+                    m = MultipartEncoder(
+                        fields={
+                            'file_url': file_data,
+                            'file_name': file_name,
+                            'mime_type': mime_type,
+                            'type_document': file.type_document
+                        }
+                    )
 
                 headers = {"Content-Type": m.content_type}
                 headers_with_keys = dict(ChainMap(headers, self.headers))
@@ -404,22 +411,18 @@ class APIClient:
                 response_data = response.json()
 
                 if response_data['status']:
-                    return UploadResult(True, file_name, "successful", response_data)
+                    return UploadResult(True, file_name, uuid=response_data.get('payload', 'successful')[0])
                 else:
-                    logger.warning(
-                        f"Upload failed for {file_name}. Attempt {attempt + 1} of {max_retries}.")
                     if attempt == max_retries - 1:
-                        return UploadResult(False, file_name, response_data.get('payload', 'Unknown error'), response_data)
+                        return UploadResult(False, file_name, error_message=response_data.get('payload', 'unknown error'))
                     time.sleep(retry_delay)
 
             except Exception as e:
-                logger.error(
-                    f"Exception occurred while uploading {file_name}: {str(e)}")
                 if attempt == max_retries - 1:
-                    return UploadResult(False, file_name, str(e), {})
+                    return UploadResult(False, file_name, error_message=str(e))
                 time.sleep(retry_delay)
 
-        return UploadResult(False, file_name, "Max retries reached", {})
+        return UploadResult(False, file_name, error_message="max retries reached")
 
     def append_job(self, job: Job, batch_id: str, max_retries: int = 1, retry_delay: int = 5) -> Dict[str, List[UploadResult]]:
         """
@@ -450,7 +453,6 @@ class APIClient:
                 results["failed"].append(result)
 
         return results
-    
 
     def search_in_brain(self, search_params: SearchParameters) -> ResultsSearch:
         """
@@ -475,14 +477,13 @@ class APIClient:
 
         if not response_data['status']:
             return ResultsSearch(results=[])
-        
+
         if not 'results' in response_data['payload']:
             return ResultsSearch(results=[])
-        
+
         results = response_data["payload"]["results"]
         results = [Result(**result_data) for result_data in results]
         return results
-        
 
     def process_item(self, batch_id: str) -> bool:
         """
