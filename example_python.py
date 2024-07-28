@@ -31,7 +31,7 @@ for doc in documents.documents:
     print(f"Document: {doc.file_name}, Status: {doc.status_document}")
 
 # add files to batch id
-results = integrator.append_to_batch(batch_id="66a5271a7a97c83cece5dd0d", files=files)
+results = integrator.append_to_batch(batch_id="batch_id", files=files)
 if len(results['failed']) > 0:
     for result in results['failed']:
         logger.info(result.file_name)
