@@ -4,7 +4,7 @@ import time
 from typing import ChainMap, Dict, List
 import requests
 from loguru import logger
-from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, Entity, File, Job, Response, Result, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, Entity, EntityDocumentExtractor, EntityTextExtractor, File, Job, Response, Result, ResultsSearch, SearchParameters, StatusDocument, UploadResult
 from requests_toolbelt import MultipartEncoder
 
 
@@ -17,6 +17,73 @@ class APIClient:
             "key": self.key,
             "secret": self.secret
         }
+
+
+    def extractor_from_text(self, data: EntityTextExtractor):
+        """
+        Extracts information from text using an external API.
+
+        This method sends a POST request to an endpoint for text extraction and returns the processed data.
+
+        Args:
+            data (EntityTextExtractor): An object containing the text and any additional parameters
+                                        required for the extraction process.
+
+        Returns:
+            dict: The 'payload' field from the JSON response, which contains the extracted information.
+
+        Raises:
+            requests.RequestException: If there's an error with the HTTP request.
+            KeyError: If the 'payload' key is not present in the response JSON.
+            JSONDecodeError: If the response cannot be decoded as JSON.
+
+        Note:
+            This method assumes that the API returns a JSON object with a 'payload' field.
+            The self.base_url and self.headers should be properly initialized before calling this method.
+        """
+        url = f"{self.base_url}/integrator/extractor/from/text"
+        payload = json.dumps(data.__dict__)
+
+        response = requests.post(url, headers=self.headers, data=payload)
+        data = response.json()
+        return data['payload']
+    
+
+    def extractor_from_document_uuid(self, uuid: str, data: EntityDocumentExtractor):
+        """
+        Extracts information from a document identified by UUID using the provided extractor configuration.
+
+        This method sends a POST request to an API endpoint to process a document and extract
+        specific information based on the provided EntityDocumentExtractor configuration.
+
+        Args:
+            uuid (str): The unique identifier of the document to be processed.
+            data (EntityDocumentExtractor): An object containing the extraction configuration
+                                            and any additional parameters required for the
+                                            extraction process.
+
+        Returns:
+            dict: The 'payload' field from the JSON response, which contains the
+                extracted information from the document.
+
+        Raises:
+            requests.RequestException: If there's an error with the HTTP request.
+            json.JSONDecodeError: If the response cannot be decoded as JSON.
+            KeyError: If the 'payload' key is not present in the response JSON.
+
+        Note:
+            - This method assumes that self.base_url and self.headers are properly initialized.
+            - The EntityDocumentExtractor object is converted to a dictionary and then to a JSON string
+            before being sent in the request payload.
+            - The API is expected to return a JSON object with a 'payload' field containing
+            the extracted information.
+        """
+        url = f"{self.base_url}/integrator/extractor/from/document/{uuid}"
+        payload = json.dumps(data.__dict__)
+        
+        response = requests.post(url, headers=self.headers, data=payload)
+        data = response.json()
+        return data['payload']
 
 
     def set_document_status(self, uuid: str, status: StatusDocument) -> bool:

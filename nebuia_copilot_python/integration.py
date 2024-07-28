@@ -1,3 +1,4 @@
+from nebuia_copilot_python.src.extractor.extractor import Extractor
 from nebuia_copilot_python.src.listener.listener import Listener
 from typing import Dict, List
 import atexit
@@ -6,7 +7,7 @@ from loguru import logger
 
 from nebuia_copilot_python.src.listener.manager import ListenerManager
 from nebuia_copilot_python.src.api_client import APIClient
-from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, DocumentType, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
 
 
 class Integrator:
@@ -27,13 +28,15 @@ class Integrator:
         Returns:
             None
         """
-        self.api_client = APIClient(
+        self._api_client = APIClient(
             key=key,
             secret=secret,
             base=with_base
         )
 
-        self.listener_manager = ListenerManager(self.api_client)
+        self._listener_manager = ListenerManager(self._api_client)
+        self._extractor = Extractor(self._api_client)
+
         atexit.register(self.cleanup)
 
     def cleanup(self):
@@ -59,7 +62,7 @@ class Integrator:
             atexit.register(self.cleanup)
         """
         logger.warning("Stopping all listeners...")
-        self.listener_manager.stop_all_listeners()
+        self._listener_manager.stop_all_listeners()
 
     def create_batch(self, name_batch: str, batch_type: BatchType):
         """
@@ -92,7 +95,7 @@ class Integrator:
             - Ensure that the `BatchType` enum or type is correctly defined and used in your application.
             - The API client should be properly initialized and configured to make successful API calls.
         """
-        response = self.api_client.create_batch(
+        response = self._api_client.create_batch(
             name_batch, batch_type)
         if response.status:
             batch_id = response.payload
@@ -118,7 +121,7 @@ class Integrator:
             None
         """
         job = Job(files=files)
-        response = self.api_client.append_job(job, batch_id)
+        response = self._api_client.append_job(job, batch_id)
         return response
 
     def get_document_types(self) -> List[DocumentType]:
@@ -144,7 +147,7 @@ class Integrator:
             ...     print(f"{doc_type.key}: {doc_type.id_type_document}")
 
         Note:
-            This method relies on the `api_client.get_document_types()` method to
+            This method relies on the `_api_client.get_document_types()` method to
             perform the actual API request. Ensure that the API client is properly
             configured before calling this method.
 
@@ -152,7 +155,7 @@ class Integrator:
             DocumentType: For the structure of each document type object.
             APIClient.get_document_types: For details on the underlying API call.
         """
-        return self.api_client.get_document_types()
+        return self._api_client.get_document_types()
 
     def get_documents_by_batch_id(self, batch_id: str) -> BatchDocumentsResponse:
         """
@@ -189,7 +192,7 @@ class Integrator:
         Note:
             - The 'entities' field in each document is optional and will be included
               only if present in the API response.
-            - This method relies on the `api_client.get_documents_by_batch()` method
+            - This method relies on the `_api_client.get_documents_by_batch()` method
               to perform the actual API request. Ensure that the API client is properly
               configured before calling this method.
 
@@ -198,7 +201,7 @@ class Integrator:
             Document: For the structure of each document object.
             Entity: For the structure of each entity object within a document.
         """
-        return self.api_client.get_documents_by_batch(batch_id)
+        return self._api_client.get_documents_by_batch(batch_id)
 
     def delete_document(self, uuid: str) -> bool:
         """
@@ -223,7 +226,7 @@ class Integrator:
             >>> print(result)
             True
         """
-        return self.api_client.delete_document_from_batch(uuid=uuid)
+        return self._api_client.delete_document_from_batch(uuid=uuid)
 
     def clear_document_by_uuid(self, uuid: str) -> bool:
         """
@@ -248,13 +251,13 @@ class Integrator:
             >>> print(result)
             True
         """
-        return self.api_client.clear_document_by_uuid(uuid=uuid)
+        return self._api_client.clear_document_by_uuid(uuid=uuid)
 
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
         Retrieves a batch of documents based on their status.
 
-        This method delegates the task of fetching documents to the `api_client`'s
+        This method delegates the task of fetching documents to the `_api_client`'s
         `get_documents_by_status` method, passing along the provided status, page,
         and limit parameters.
 
@@ -271,7 +274,7 @@ class Integrator:
         Raises:
             APIException: If there is an error while communicating with the API.
         """
-        return self.api_client.get_documents_by_status(status=status, page=page, limit=limit)
+        return self._api_client.get_documents_by_status(status=status, page=page, limit=limit)
 
     def delete_batch(self, batch_id) -> bool:
         """
@@ -287,7 +290,7 @@ class Integrator:
         Returns:
             bool: True if the batch was successfully deleted, False otherwise.
         """
-        return self.api_client.delete_batch(batch_id)
+        return self._api_client.delete_batch(batch_id)
 
     def search_in_brain(self, search_params: SearchParameters) -> ResultsSearch:
         """
@@ -310,7 +313,7 @@ class Integrator:
             APIException: If there is an error during the search operation, such as
                 network issues, invalid parameters, or service unavailability.
         """
-        return self.api_client.search_in_brain(search_params=search_params)
+        return self._api_client.search_in_brain(search_params=search_params)
 
     def process_document_in_batch(self, batch_id: str):
         """
@@ -330,7 +333,7 @@ class Integrator:
             HTTPError: If the POST request returns an unsuccessful status code.
             JSONDecodeError: If the response content cannot be decoded as JSON.
         """
-        return self.api_client.process_item(batch_id=batch_id)
+        return self._api_client.process_item(batch_id=batch_id)
 
     def add_listener(self, status: StatusDocument, interval: int, limit_documents: int) -> Listener:
         """
@@ -374,7 +377,7 @@ class Integrator:
         the results in a loop, printing the file names of received documents. The loop can
         be interrupted with a KeyboardInterrupt, which will stop the listener.
         """
-        return self.listener_manager.add_listener(status=status, interval=interval, limit_documents=limit_documents)
+        return self._listener_manager.add_listener(status=status, interval=interval, limit_documents=limit_documents)
 
 
     def set_document_status(self, uuid: str, status: StatusDocument) -> bool:
@@ -398,4 +401,93 @@ class Integrator:
             >>> set_document_status('123e4567-e89b-12d3-a456-426614174000', StatusDocument.APPROVED)
             True
         """
-        return self.api_client.set_document_status(uuid=uuid, status=status)
+        return self._api_client.set_document_status(uuid=uuid, status=status)
+    
+
+    def extract_entities_from_text(self, extractor: EntityTextExtractor):
+        """
+        Extracts specified entities from the given text using the provided EntityTextExtractor.
+
+        This method utilizes the underlying Extractor to process the text and extract entities
+        based on the schema provided in the EntityTextExtractor.
+
+        Args:
+            extractor (EntityTextExtractor): A dataclass object containing:
+                - text (str): The text from which to extract entities.
+                - schema (Union[str, dict]): The schema defining the entities to extract.
+                This should always be provided as a dict, specifying the entities and 
+                their extraction rules.
+
+        Returns:
+            dict: A dictionary containing the extracted entities. The structure of this
+                dictionary corresponds to the schema provided and includes the extracted
+                entity values from the text.
+
+        Raises:
+            TypeError: If the schema is not provided as a dict.
+            ValueError: If the text is empty or the schema is invalid.
+            Any exceptions that might be raised by the underlying Extractor's
+            extract_from_text method or the API client.
+
+        Note:
+            - The schema in the EntityTextExtractor should always be a dict. If a string
+            is provided, it should be converted to a dict before calling this method.
+            - This method does not modify the input extractor object. Any necessary
+            preprocessing is handled by the underlying Extractor class.
+
+        Example:
+            extractor = EntityTextExtractor(
+                text="John Doe is 30 years old and lives in New York.",
+                schema={
+                    "name": "",
+                    "age": "",
+                    "location": ""
+                }
+            )
+            entities = obj.extract_entities_from_text(extractor)
+        """
+        return self._extractor.extract_from_text(extractor=extractor)
+    
+    def extract_entities_from_document_with_uuid(self, uuid: str, extractor: EntityDocumentExtractor):
+        """
+        Extracts entities from a document identified by UUID using the provided extractor configuration.
+
+        This method serves as a wrapper around the Extractor's extract_from_document_with_uuid method,
+        delegating the actual extraction process to the underlying Extractor instance.
+
+        Args:
+            uuid (str): The unique identifier of the document from which to extract entities.
+            extractor (EntityDocumentExtractor): A dataclass object containing:
+                - matches (str): Specifies the matching criteria for the extraction process.
+                - schema (Union[str, dict]): The schema defining the entities to extract.
+                If provided as a dict, it will be converted to an indented string by the underlying method.
+
+        Returns:
+            Union[dict, list, str]: The extracted entities as a Python object (dict or list) 
+                                    if the extraction response is valid JSON, or the raw response string 
+                                    if JSON parsing fails.
+
+        Raises:
+            TypeError: If the schema in the extractor is not a string or dict.
+            Any exceptions that might be raised by the underlying extract_from_document_with_uuid method
+            or the API client.
+
+        Note:
+            - This method does not modify the input extractor object directly. Any necessary
+            preprocessing (such as converting the schema to an indented string) is handled
+            by the underlying Extractor class.
+            - The actual extraction logic and API communication are handled by the
+            _extractor.extract_from_document_with_uuid method.
+
+        Example:
+            >>> uuid = "uuid_document"
+            >>> extractor = EntityDocumentExtractor(
+            ...   matches="protocolo web3",
+            ...    schema={
+            ...        "networks": []
+            ...    }
+            ... )
+            >>> entities = obj.extract_entities_from_text(uuid, extractor)
+            {'networks': ['Polygon', 'Ethereum']}
+        """
+        return self._extractor.extract_from_document_with_uuid(uuid=uuid, extractor=extractor)

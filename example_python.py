@@ -1,13 +1,13 @@
 from nebuia_copilot_python import integration
 from loguru import logger
 
-from nebuia_copilot_python.src.models import BatchType, File, SearchParameters, StatusDocument
+from nebuia_copilot_python.src.models import BatchType, EntityDocumentExtractor, EntityTextExtractor, File, SearchParameters, StatusDocument
 
 integrator = integration.Integrator(with_base='http://nebuia.instance/api/v1', key='api_key',
                                     secret='api_secret')
 
 files = [File(
-    file="https://domain.com/file.pdf", # "/path/to/file.pdf", bytes
+    file="https://domain.com/file.pdf",  # "/path/to/file.pdf", bytes
     type_document="uuid_type_document"
 )]
 
@@ -68,3 +68,26 @@ try:
 except KeyboardInterrupt:
     listener.stop()
     logger.warning("Stopped listener.")
+
+
+# extract entities from any text (in free version limit to 256 tokens)
+entities = integrator.extract_entities_from_text(EntityTextExtractor(
+    text="John Doe is 30 years old and lives in New York",
+    schema={
+        "name": "",
+        "age": "",
+        "location": ""
+    }
+))
+
+logger.info(entities)
+
+# extract entities from processed documents
+entities = integrator.extract_entities_from_document_with_uuid("uuid_document", EntityDocumentExtractor(
+    matches="protocolo web3",
+    schema={
+        "networks": []
+    }
+))
+
+logger.info(entities)

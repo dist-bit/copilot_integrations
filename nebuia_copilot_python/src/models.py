@@ -139,6 +139,18 @@ class File:
 
 
 @dataclass
+class EntityTextExtractor:
+    text: str
+    schema: Union[str, dict]
+
+
+@dataclass
+class EntityDocumentExtractor:
+    matches: str
+    schema: Union[str, dict]
+
+
+@dataclass
 class Job:
     files: List[File]
 
