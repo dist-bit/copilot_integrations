@@ -7,7 +7,7 @@ from loguru import logger
 
 from nebuia_copilot_python.src.listener.manager import ListenerManager
 from nebuia_copilot_python.src.api_client import APIClient
-from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, Search, SearchDocument, SearchParameters, StatusDocument, UploadResult
 
 
 class Integrator:
@@ -510,4 +510,45 @@ class Integrator:
             APIError: If there is an error in communicating with the API client or parsing the response.
         """
         return self._api_client.get_document_by_uuid(uuid=uuid)
+    
+
+    def search_in_document(self, search: Search) -> SearchDocument:
+        """
+        Perform a search operation within a document using the provided search parameters.
+
+        This method serves as a wrapper around the API client's search_in_document function,
+        delegating the actual search operation to the API client implementation.
+
+        Args:
+            search (Search): An instance of the Search class containing the search parameters.
+                            This should include all necessary information to perform the search,
+                            such as query terms, filters, and any other relevant search criteria.
+
+        Returns:
+            SearchDocument: An instance of the SearchDocument class containing the search results.
+                            This typically includes matched documents, metadata about the search,
+                            and any other relevant information returned by the search operation.
+
+        Raises:
+            Any exceptions raised by the underlying API client method will be propagated up
+            to the caller of this method.
+
+        Note:
+            The actual implementation of the search logic is handled by the API client.
+            This method primarily acts as an interface to that functionality within the
+            current class or module.
+
+        Example:
+            >>> search_params = Search(
+            ...     matches="python programming",
+            ...     max_results=5,
+            ...     uuid="uuid document"
+            ... )
+            >>> results = integrator.search_in_document(search_params)
+            >>> print(f"Found {results.estimatedTotalHits} matches")
+            Found 42 matches
+            >>> for hit in results.hits[:3]:
+            ...     print(f"- {hit.content[:50]}...")
+        """
+        return self._api_client.search_in_document(search)
 

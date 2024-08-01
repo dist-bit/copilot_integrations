@@ -1,7 +1,7 @@
 from nebuia_copilot_python import integration
 from loguru import logger
 
-from nebuia_copilot_python.src.models import BatchType, EntityDocumentExtractor, EntityTextExtractor, File, SearchParameters, StatusDocument
+from nebuia_copilot_python.src.models import BatchType, EntityDocumentExtractor, EntityTextExtractor, File, Search, SearchParameters, StatusDocument
 
 integrator = integration.Integrator(with_base='http://nebuia.instance/api/v1', key='api_key',
                                     secret='api_secret')
@@ -15,6 +15,9 @@ files = [File(
 results = integrator.search_in_brain(search_params=SearchParameters(
     batch="brain_id", param="gripa", k=2, type_search="semantic"))
 logger.info(results)
+
+search_result = integrator.search_in_document(search=Search(matches="determinacion", uuid="uuid", max_results=1))
+logger.info(search_result)
 
 # get documents by status (supports pagination)
 docs = integrator.get_documents_by_status(status=StatusDocument.ERROR_LINK)
@@ -32,9 +35,13 @@ logger.info(delete)
 delete = integrator.delete_batch("id_batch")
 logger.info(delete)
 
+# append documents to extractor inference
+status = integrator.process_document_in_batch("batch_id")
+logger.info(status)
+
 # get document by uud
 document = integrator.get_document_by_uuid("uuid_document")
-logger.warning(document)
+logger.info(document)
 
 # get all documents from batch id
 documents = integrator.get_documents_by_batch_id("batch_id")
@@ -70,7 +77,7 @@ try:
         data = documents.documents
         for document in data:
             logger.info(f"Received documents: {document.uuid}")
-            # set to complete
+            # set document to complete status
             # integrator.set_document_status(document.uuid, StatusDocument.COMPLETE)
             break
 except KeyboardInterrupt:

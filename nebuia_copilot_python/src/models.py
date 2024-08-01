@@ -139,6 +139,12 @@ class File:
 
 
 @dataclass
+class Search:
+    matches: str
+    uuid: str
+    max_results: int
+
+@dataclass
 class EntityTextExtractor:
     text: str
     schema: Union[str, dict]
@@ -285,3 +291,34 @@ class ResultsSearch:
         results (List[Result]): A list of result items.
     """
     results: List[Result]
+
+
+@dataclass
+class Meta:
+    name: str
+    source: int
+
+@dataclass
+class FormattedContent:
+    content: str
+
+@dataclass
+class Formatted:
+    content: str
+    id: str
+    meta: Meta
+
+@dataclass
+class Hit:
+    _formatted: Formatted
+    content: str
+    id: int
+    meta: Meta
+
+@dataclass
+class SearchDocument:
+    hits: List[Hit]
+    estimatedTotalHits: int
+    limit: int
+    processingTimeMs: int
+    query: str

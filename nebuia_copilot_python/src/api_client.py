@@ -4,7 +4,7 @@ import time
 from typing import ChainMap, Dict, List
 import requests
 from loguru import logger
-from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, Entity, EntityDocumentExtractor, EntityTextExtractor, File, Job, Response, Result, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, Entity, EntityDocumentExtractor, EntityTextExtractor, File, Formatted, Hit, Job, Meta, Response, Result, ResultsSearch, Search, SearchDocument, SearchParameters, StatusDocument, UploadResult
 from requests_toolbelt import MultipartEncoder
 
 
@@ -17,7 +17,6 @@ class APIClient:
             "key": self.key,
             "secret": self.secret
         }
-
 
     def extractor_from_text(self, data: EntityTextExtractor):
         """
@@ -47,7 +46,6 @@ class APIClient:
         response = requests.post(url, headers=self.headers, data=payload)
         data = response.json()
         return data['payload']
-    
 
     def extractor_from_document_uuid(self, uuid: str, data: EntityDocumentExtractor):
         """
@@ -80,11 +78,76 @@ class APIClient:
         """
         url = f"{self.base_url}/integrator/extractor/from/document/{uuid}"
         payload = json.dumps(data.__dict__)
-        
+
         response = requests.post(url, headers=self.headers, data=payload)
         data = response.json()
         return data['payload']
 
+    def search_in_document(self, search: Search) -> SearchDocument:
+        """
+        Perform a document search using the provided search parameters and return the results.
+
+        This function sends a POST request to the document search endpoint, processes the 
+        response, and constructs a SearchDocument object from the returned data.
+
+        Args:
+            search: An object containing search parameters. It should have a __dict__ 
+                    attribute that can be converted to JSON, and should include 'matches' 
+                    and 'max_results' attributes.
+
+        Returns:
+            SearchDocument: An object containing the search results. If the search is 
+                            successful, this includes hits, estimated total hits, processing 
+                            time, and other metadata. If an error occurs, it returns a 
+                            SearchDocument with empty results and the original query.
+
+        Raises:
+            Any exceptions from the requests.post() call are not caught here and will 
+            propagate up.
+
+        Note:
+            This function logs the raw response data at the INFO level before processing.
+            If the response cannot be processed as expected, it returns a default 
+            SearchDocument with empty results.
+        """
+        payload = json.dumps(search.__dict__)
+        url = f"{self.base_url}/integrator/document/search"
+        response = requests.post(url, headers=self.headers, data=payload)
+        data = response.json()
+        dict_data = data['payload']
+        logger.info(dict_data)
+
+        try:
+            # Create the SearchDocument instance
+            search_document = SearchDocument(
+                hits=[
+                    Hit(
+                        _formatted=Formatted(
+                            content=hit['_formatted']['content'],
+                            id=hit['_formatted']['id'],
+                            meta=Meta(
+                                name=hit['_formatted']['meta']['name'],
+                                source=hit['_formatted']['meta']['source']
+                            )
+                        ),
+                        content=hit['content'],
+                        id=hit['id'],
+                        meta=Meta(
+                            name=hit['meta']['name'],
+                            source=hit['meta']['source']
+                        )
+                    ) for hit in dict_data['hits']
+                ],
+                estimatedTotalHits=dict_data['estimatedTotalHits'],
+                limit=dict_data['limit'],
+                processingTimeMs=dict_data['processingTimeMs'],
+                query=dict_data['query']
+            )
+
+            return search_document
+
+        except:
+            return SearchDocument(query=search.matches, hits=[], estimatedTotalHits=0, processingTimeMs=0, limit=search.max_results)
 
     def set_document_status(self, uuid: str, status: StatusDocument) -> bool:
         """
@@ -112,7 +175,6 @@ class APIClient:
         response = requests.get(url, headers=self.headers)
         data = response.json()
         return data['status']
-    
 
     def get_document_by_uuid(self, uuid: str) -> Document:
         """
@@ -142,7 +204,6 @@ class APIClient:
 
             data = response.json()
             doc_data = data.get('payload', {})
-            
 
             entities = None
             if 'entities' in doc_data:
@@ -178,7 +239,6 @@ class APIClient:
             logger.error(f"Error parsing response data: {e}")
             raise
 
-
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
         Fetches a batch of documents based on their status from the API.
@@ -203,7 +263,8 @@ class APIClient:
             KeyError: If there is an error parsing the response data due to missing keys.
             ValueError: If there is an error parsing the response data due to invalid values.
         """
-        url = f"{self.base_url}/integrator/documents/by/status/{status.value}?page={page}&limit={limit}"
+        url = f"{self.base_url}/integrator/documents/by/status/{
+            status.value}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -293,7 +354,8 @@ class APIClient:
             The 'entities' field in each document is optional and will be included
             only if present in the API response.
         """
-        url = f"{self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
+        url = f"{
+            self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
