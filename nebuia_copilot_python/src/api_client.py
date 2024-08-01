@@ -112,6 +112,72 @@ class APIClient:
         response = requests.get(url, headers=self.headers)
         data = response.json()
         return data['status']
+    
+
+    def get_document_by_uuid(self, uuid: str) -> Document:
+        """
+        Retrieves a document by its UUID from the integrator service.
+
+        This method sends a GET request to the integrator service to fetch document details
+        based on the provided UUID. It parses the response JSON to create and return a
+        Document object populated with the retrieved data.
+
+        Args:
+            uuid (str): The UUID of the document to retrieve.
+
+        Returns:
+            Document: A Document object containing the details of the retrieved document.
+
+        Raises:
+            HTTPError: If the HTTP request returns an unsuccessful status code.
+            KeyError: If the expected keys are missing in the response JSON.
+            ValueError: If there is an error parsing the response JSON.
+            Exception: For any other unexpected errors during the request or parsing process.
+        """
+        url = f"{self.base_url}/integrator/document/get/by/uuid/{uuid}"
+
+        try:
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+
+            data = response.json()
+            doc_data = data.get('payload', {})
+            
+
+            entities = None
+            if 'entities' in doc_data:
+                entities = [
+                    Entity(
+                        id=entity['id'],
+                        key=entity['key'],
+                        value=entity['value'],
+                        page=entity['page'],
+                        id_core=entity['id_core'],
+                        is_valid=entity['is_valid']
+                    ) for entity in doc_data['entities']
+                ]
+
+            document = Document(
+                id=doc_data['id'],
+                batch_id=doc_data['batch_id'],
+                user=doc_data['user'],
+                uuid=doc_data['uuid'],
+                url=doc_data['url'],
+                file_name=doc_data['file_name'],
+                type_document=doc_data['type_document'],
+                status_document=doc_data['status_document'],
+                uploaded=doc_data['uploaded'],
+                reviewed_at=doc_data['reviewed_at'],
+                source_type=doc_data['source_type'],
+                entities=entities
+            )
+
+            return document
+
+        except (KeyError, ValueError) as e:
+            logger.error(f"Error parsing response data: {e}")
+            raise
+
 
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
@@ -137,8 +203,7 @@ class APIClient:
             KeyError: If there is an error parsing the response data due to missing keys.
             ValueError: If there is an error parsing the response data due to invalid values.
         """
-        url = f"{self.base_url}/integrator/documents/by/status/{
-            status.value}?page={page}&limit={limit}"
+        url = f"{self.base_url}/integrator/documents/by/status/{status.value}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -178,10 +243,8 @@ class APIClient:
                     file_name=doc_data['file_name'],
                     type_document=doc_data['type_document'],
                     status_document=doc_data['status_document'],
-                    uploaded=datetime.fromisoformat(
-                        doc_data['uploaded'].rstrip('Z')),
-                    reviewed_at=datetime.fromisoformat(
-                        doc_data['reviewed_at'].rstrip('Z')),
+                    uploaded=doc_data['uploaded'],
+                    reviewed_at=doc_data['reviewed_at'],
                     source_type=doc_data['source_type'],
                     entities=entities
                 )
@@ -270,10 +333,8 @@ class APIClient:
                     file_name=doc_data['file_name'],
                     type_document=doc_data['type_document'],
                     status_document=doc_data['status_document'],
-                    uploaded=datetime.fromisoformat(
-                        doc_data['uploaded'].rstrip('Z')),
-                    reviewed_at=datetime.fromisoformat(
-                        doc_data['reviewed_at'].rstrip('Z')),
+                    uploaded=doc_data['uploaded'],
+                    reviewed_at=doc_data['reviewed_at'],
                     source_type=doc_data['source_type'],
                     entities=entities
                 )
@@ -407,7 +468,7 @@ class APIClient:
                     user=item['user'],
                     key=item['key'],
                     id_type_document=item['id_type_document'],
-                    created=datetime.fromisoformat(item['created'].rstrip('Z'))
+                    created=item['created']
                 )
                 for item in payload
             ]

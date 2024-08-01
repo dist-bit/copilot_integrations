@@ -169,7 +169,7 @@ class DocumentType:
     user: str
     key: str
     id_type_document: str
-    created: datetime
+    created: str
 
 
 @dataclass
@@ -220,8 +220,8 @@ class Document:
     file_name: str
     type_document: str
     status_document: str
-    uploaded: datetime
-    reviewed_at: datetime
+    uploaded: str
+    reviewed_at: str
     source_type: str
     entities: Optional[List[Entity]] = None
 

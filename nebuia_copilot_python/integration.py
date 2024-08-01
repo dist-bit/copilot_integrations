@@ -7,7 +7,7 @@ from loguru import logger
 
 from nebuia_copilot_python.src.listener.manager import ListenerManager
 from nebuia_copilot_python.src.api_client import APIClient
-from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
+from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, SearchParameters, StatusDocument, UploadResult
 
 
 class Integrator:
@@ -491,3 +491,23 @@ class Integrator:
             {'networks': ['Polygon', 'Ethereum']}
         """
         return self._extractor.extract_from_document_with_uuid(uuid=uuid, extractor=extractor)
+    
+
+    def get_document_by_uuid(self, uuid: str) -> Document:
+        """
+        Retrieves a document by its UUID from the API client.
+
+        This method delegates the task of fetching document details based on the provided UUID
+        to the API client. It returns a Document object populated with the retrieved data.
+
+        Args:
+            uuid (str): The UUID of the document to retrieve.
+
+        Returns:
+            Document: A Document object containing the details of the retrieved document.
+
+        Raises:
+            APIError: If there is an error in communicating with the API client or parsing the response.
+        """
+        return self._api_client.get_document_by_uuid(uuid=uuid)
+

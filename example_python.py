@@ -28,6 +28,14 @@ logger.info(status)
 delete = integrator.delete_document("uuid_document")
 logger.info(delete)
 
+# delete batch id
+delete = integrator.delete_batch("id_batch")
+logger.info(delete)
+
+# get document by uud
+document = integrator.get_document_by_uuid("uuid_document")
+logger.warning(document)
+
 # get all documents from batch id
 documents = integrator.get_documents_by_batch_id("batch_id")
 for doc in documents.documents:
