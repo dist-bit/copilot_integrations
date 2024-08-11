@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='nebuia_copilot_python',
-    version='0.0.8',
+    version='0.0.12',
     packages=find_packages(),
     install_requires=[
         'requests',

@@ -174,6 +174,7 @@ class APIClient:
         url = f"{self.base_url}/integrator/documents/set/status/{uuid}/{status.value}"
         response = requests.get(url, headers=self.headers)
         data = response.json()
+        logger.info(data)
         return data['status']
 
     def get_document_by_uuid(self, uuid: str) -> Document:
@@ -263,8 +264,7 @@ class APIClient:
             KeyError: If there is an error parsing the response data due to missing keys.
             ValueError: If there is an error parsing the response data due to invalid values.
         """
-        url = f"{self.base_url}/integrator/documents/by/status/{
-            status.value}?page={page}&limit={limit}"
+        url = f"{self.base_url}/integrator/documents/by/status/{status.value}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -283,12 +283,13 @@ class APIClient:
 
             for doc_data in documents_data:
                 entities = None
+                
                 if 'entities' in doc_data:
                     entities = [
                         Entity(
                             id=entity['id'],
                             key=entity['key'],
-                            value=entity['value'],
+                            value=entity['value'] if "value" in entity else  'no_encontrado',
                             page=entity['page'],
                             id_core=entity['id_core'],
                             is_valid=entity['is_valid']
@@ -354,8 +355,7 @@ class APIClient:
             The 'entities' field in each document is optional and will be included
             only if present in the API response.
         """
-        url = f"{
-            self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
+        url = f"{self.base_url}/integrator/documents/by/id/batch/{id_batch}?page={page}&limit={limit}"
 
         try:
             response = requests.get(url, headers=self.headers)
@@ -570,6 +570,7 @@ class APIClient:
         }
 
         response = requests.post(url, headers=self.headers, data=data)
+        logger.info(response.text)
 
         if response.status_code == 200:
             json_data = response.json()
@@ -624,6 +625,8 @@ class APIClient:
                 response = requests.post(
                     url, data=m, headers=headers_with_keys)
                 response_data = response.json()
+
+                print(response_data)
 
                 if response_data['status']:
                     return UploadResult(True, file_name, uuid=response_data.get('payload', 'successful')[0])
@@ -718,7 +721,7 @@ class APIClient:
             HTTPError: If the POST request returns an unsuccessful status code.
             JSONDecodeError: If the response content cannot be decoded as JSON.
         """
-        url = f"{self.base}/integrator/run/qa/batch/all/{batch_id}"
+        url = f"{self.base_url}/integrator/run/qa/batch/all/{batch_id}"
         headers = {
             "key": self.key,
             "secret": self.secret,

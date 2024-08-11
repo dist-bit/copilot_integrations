@@ -5,7 +5,7 @@ import atexit
 
 from loguru import logger
 
-from nebuia_copilot_python.src.listener.manager import ListenerManager
+from nebuia_copilot_python.src.listener.manager import ThreadedListenerManager
 from nebuia_copilot_python.src.api_client import APIClient
 from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, Search, SearchDocument, SearchParameters, StatusDocument, UploadResult
 
@@ -34,7 +34,7 @@ class Integrator:
             base=with_base
         )
 
-        self._listener_manager = ListenerManager(self._api_client)
+        self._listener_manager = ThreadedListenerManager(self._api_client)
         self._extractor = Extractor(self._api_client)
 
         atexit.register(self.cleanup)
@@ -378,7 +378,16 @@ class Integrator:
         be interrupted with a KeyboardInterrupt, which will stop the listener.
         """
         return self._listener_manager.add_listener(status=status, interval=interval, limit_documents=limit_documents)
+    
 
+    def start_all_listeners(self):
+        self._listener_manager.start_all_listeners()
+
+
+    def get_results_listeners(self):
+        while True:
+            for status, result in self._listener_manager.get_all_results():
+                yield status, result
 
     def set_document_status(self, uuid: str, status: StatusDocument) -> bool:
         """

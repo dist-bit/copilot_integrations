@@ -76,7 +76,7 @@ try:
     for documents in listener.results():
         data = documents.documents
         for document in data:
-            logger.info(f"Received documents: {document.uuid}")
+            logger.info(f"Received documents: {document}")
             # set document to complete status
             # integrator.set_document_status(document.uuid, StatusDocument.COMPLETE)
             break

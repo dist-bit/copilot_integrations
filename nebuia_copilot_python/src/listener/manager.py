@@ -1,70 +1,71 @@
-from typing import List
+import time
+import threading
+from typing import Dict
+from queue import Queue
+from threading import Event
 from nebuia_copilot_python.src.api_client import APIClient
 from nebuia_copilot_python.src.models import StatusDocument
-from nebuia_copilot_python.src.listener.listener import Listener
 
 
-class ListenerManager:
-    """
-    Manages multiple Listener instances for fetching documents from an API.
-
-    This class provides functionality to create, start, and manage multiple Listener
-    objects, each responsible for fetching documents with a specific status at
-    regular intervals.
-
-    Attributes:
-        api_client (APIClient): The API client used by all managed Listeners.
-        listeners (List[Listener]): A list of all active Listener instances.
-
-    Methods:
-        __init__(api_client: APIClient):
-            Initializes the ListenerManager with an API client.
-        
-        add_listener(status: StatusDocument, interval: int, limit_documents: int) -> Listener:
-            Creates, starts, and adds a new Listener to the manager.
-        
-        stop_all_listeners():
-            Stops all active Listeners and clears the list.
-    """
-
-    def __init__(self, api_client: APIClient):
-        """
-        Initialize the ListenerManager.
-
-        Args:
-            api_client (APIClient): The API client to be used by all managed Listeners.
-        """
+class ThreadedEventBasedListener:
+    def __init__(self, api_client: APIClient, status: StatusDocument, interval: int, limit_documents: int):
         self.api_client = api_client
-        self.listeners: List[Listener] = []
+        self.status = status
+        self.interval = interval
+        self.limit_documents = limit_documents
+        self.stop_event = Event()
+        self.results_queue = Queue()
+        self.thread = None
 
-    def add_listener(self, status: StatusDocument, interval: int, limit_documents: int) -> Listener:
-        """
-        Create, start, and add a new Listener to the manager.
+    def fetch_documents(self):
+        documents = self.api_client.get_documents_by_status(
+            status=self.status, 
+            limit=self.limit_documents
+        )
+        return documents
 
-        This method creates a new Listener instance with the specified parameters,
-        starts it, adds it to the list of managed listeners, and returns it.
+    def run(self):
+        while not self.stop_event.is_set():
+            documents = self.fetch_documents()
+            for doc in documents.documents:
+                self.results_queue.put((self.status, doc))
+            time.sleep(self.interval)
 
-        Args:
-            status (StatusDocument): The status of documents to be fetched by the Listener.
-            interval (int): The interval in seconds between each fetch operation.
-            limit_documents (int): The maximum number of documents to fetch per request.
+    def start(self):
+        if self.thread is None or not self.thread.is_alive():
+            self.thread = threading.Thread(target=self.run)
+            self.thread.start()
 
-        Returns:
-            Listener: The newly created and started Listener instance.
-        """
-        listener = Listener(
-            self.api_client, status=status, interval=interval, limit_documents=limit_documents)
-        listener.start()
-        self.listeners.append(listener)
+    def stop(self):
+        self.stop_event.set()
+        if self.thread and self.thread.is_alive():
+            self.thread.join()
+
+    def get_results(self):
+        while not self.results_queue.empty():
+            yield self.results_queue.get()
+
+class ThreadedListenerManager:
+    def __init__(self, api_client: APIClient):
+        self.api_client = api_client
+        self.listeners: Dict[StatusDocument, ThreadedEventBasedListener] = {}
+
+    def add_listener(self, status: StatusDocument, interval: int, limit_documents: int) -> ThreadedEventBasedListener:
+        listener = ThreadedEventBasedListener(
+            self.api_client, status=status, interval=interval, 
+            limit_documents=limit_documents
+        )
+        self.listeners[status] = listener
         return listener
 
-    def stop_all_listeners(self):
-        """
-        Stop all active Listeners and clear the list.
+    def start_all_listeners(self):
+        for listener in self.listeners.values():
+            listener.start()
 
-        This method iterates through all managed Listeners, stops each one,
-        and then clears the list of Listeners.
-        """
-        for listener in self.listeners:
+    def stop_all_listeners(self):
+        for listener in self.listeners.values():
             listener.stop()
-        self.listeners.clear()
+
+    def get_all_results(self):
+        for status, listener in self.listeners.items():
+            yield from listener.get_results()
