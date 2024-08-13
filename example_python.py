@@ -70,19 +70,23 @@ status, batch_id = integrator.create_batch(
 logger.info(status, batch_id)
 
 # listener example
-listener = integrator.add_listener(
-    status=StatusDocument.WAITING_QA, interval=4, limit_documents=20)
-try:
-    for documents in listener.results():
-        data = documents.documents
-        for document in data:
-            logger.info(f"Received documents: {document}")
-            # set document to complete status
-            # integrator.set_document_status(document.uuid, StatusDocument.COMPLETE)
-            break
-except KeyboardInterrupt:
-    listener.stop()
-    logger.warning("Stopped listener.")
+integrator.add_listener(
+    status=StatusDocument.QA_COMPLETE, batchType=BatchType.EXECUTION, interval=4, limit_documents=20)
+
+integrator.add_listener(
+    status=StatusDocument.WAITING_QA, batchType=BatchType.EXECUTION, interval=4, limit_documents=20)
+
+
+def on_document(status, doc):
+    logger.info(f"getting document {status}: {doc}")
+    
+def on_listener_start(status):
+    logger.debug(f"listener fro status {status} started")
+    
+integrator.listener.set_on_document_handler(on_document)
+integrator.listener.set_on_listener_start_handler(on_listener_start)
+    
+integrator.listener.run()
 
 
 # extract entities from any text (in free version limit to 256 tokens)

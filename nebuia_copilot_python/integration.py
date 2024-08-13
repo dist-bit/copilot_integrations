@@ -1,11 +1,9 @@
 from nebuia_copilot_python.src.extractor.extractor import Extractor
-from nebuia_copilot_python.src.listener.listener import Listener
 from typing import Dict, List
-import atexit
 
 from loguru import logger
 
-from nebuia_copilot_python.src.listener.manager import ThreadedListenerManager
+from nebuia_copilot_python.src.listener.listener_integrator import ListenerIntegrator
 from nebuia_copilot_python.src.api_client import APIClient
 from nebuia_copilot_python.src.models import BatchDocumentsResponse, BatchType, Document, DocumentType, EntityDocumentExtractor, EntityTextExtractor, File, Job, ResultsSearch, Search, SearchDocument, SearchParameters, StatusDocument, UploadResult
 
@@ -34,35 +32,14 @@ class Integrator:
             base=with_base
         )
 
-        self._listener_manager = ThreadedListenerManager(self._api_client)
+        self.listener = self._create_listener_integrator(self._api_client)
         self._extractor = Extractor(self._api_client)
 
-        atexit.register(self.cleanup)
-
-    def cleanup(self):
+    def _create_listener_integrator(self, api_client: APIClient) -> ListenerIntegrator:
         """
-        Perform cleanup operations before the program exits.
-
-        This method is intended to be registered with atexit to ensure proper
-        shutdown of all listeners when the program terminates. It stops all
-        active listeners managed by the ListenerManager.
-
-        The method performs the following actions:
-        1. Prints a message indicating that listeners are being stopped.
-        2. Calls the stop_all_listeners method of the ListenerManager to
-        gracefully shut down all active listeners.
-
-        Note:
-            This method should be registered with atexit to ensure it's called
-            automatically when the program exits, even in case of unexpected
-            termination.
-
-        Example:
-            import atexit
-            atexit.register(self.cleanup)
+        create instance from ListenerIntegrator.
         """
-        logger.warning("Stopping all listeners...")
-        self._listener_manager.stop_all_listeners()
+        return ListenerIntegrator(api_client)
 
     def create_batch(self, name_batch: str, batch_type: BatchType):
         """
@@ -253,6 +230,9 @@ class Integrator:
         """
         return self._api_client.clear_document_by_uuid(uuid=uuid)
 
+    def get_documents_by_status_and_batch(self, status: StatusDocument, batchType: BatchType, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
+        return self._api_client.get_documents_by_status_and_batch(status=status, batch_type=batchType, page=page, limit=limit)
+
     def get_documents_by_status(self, status: StatusDocument, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
         Retrieves a batch of documents based on their status.
@@ -335,7 +315,7 @@ class Integrator:
         """
         return self._api_client.process_item(batch_id=batch_id)
 
-    def add_listener(self, status: StatusDocument, interval: int, limit_documents: int) -> Listener:
+    def add_listener(self, status: StatusDocument, batchType: BatchType,  interval: int, limit_documents: int):
         """
         Add a new listener to the listener manager.
 
@@ -344,6 +324,7 @@ class Integrator:
 
         Args:
             status (StatusDocument): The status of documents to be fetched by the new listener.
+            batchType (BatchType): The type of batches to get
             interval (int): The time interval (in seconds) between each fetch operation.
             limit_documents (int): The maximum number of documents to fetch in each operation.
 
@@ -357,7 +338,7 @@ class Integrator:
 
         Example:
             >>> # Creating a new listener
-            >>> listener = integrator.add_listener(StatusDocument.WAITING_QA, 4, limit_documents=20)
+            >>> listener = integrator.add_listener(StatusDocument.WAITING_QA, BatchType.EXECUTION,  4, limit_documents=20)
             >>> 
             >>> # Using the listener to process documents
             >>> try:
@@ -377,17 +358,7 @@ class Integrator:
         the results in a loop, printing the file names of received documents. The loop can
         be interrupted with a KeyboardInterrupt, which will stop the listener.
         """
-        return self._listener_manager.add_listener(status=status, interval=interval, limit_documents=limit_documents)
-    
-
-    def start_all_listeners(self):
-        self._listener_manager.start_all_listeners()
-
-
-    def get_results_listeners(self):
-        while True:
-            for status, result in self._listener_manager.get_all_results():
-                yield status, result
+        return self.listener.add_listener(status=status, batch_type=batchType, interval=interval, limit_documents=limit_documents)
 
     def set_document_status(self, uuid: str, status: StatusDocument) -> bool:
         """
@@ -411,7 +382,6 @@ class Integrator:
             True
         """
         return self._api_client.set_document_status(uuid=uuid, status=status)
-    
 
     def extract_entities_from_text(self, extractor: EntityTextExtractor):
         """
@@ -456,7 +426,7 @@ class Integrator:
             entities = obj.extract_entities_from_text(extractor)
         """
         return self._extractor.extract_from_text(extractor=extractor)
-    
+
     def extract_entities_from_document_with_uuid(self, uuid: str, extractor: EntityDocumentExtractor):
         """
         Extracts entities from a document identified by UUID using the provided extractor configuration.
@@ -500,7 +470,6 @@ class Integrator:
             {'networks': ['Polygon', 'Ethereum']}
         """
         return self._extractor.extract_from_document_with_uuid(uuid=uuid, extractor=extractor)
-    
 
     def get_document_by_uuid(self, uuid: str) -> Document:
         """
@@ -519,7 +488,6 @@ class Integrator:
             APIError: If there is an error in communicating with the API client or parsing the response.
         """
         return self._api_client.get_document_by_uuid(uuid=uuid)
-    
 
     def search_in_document(self, search: Search) -> SearchDocument:
         """
@@ -560,4 +528,3 @@ class Integrator:
             ...     print(f"- {hit.content[:50]}...")
         """
         return self._api_client.search_in_document(search)
-

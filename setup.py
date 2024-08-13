@@ -2,13 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='nebuia_copilot_python',
-    version='0.0.12',
+    version='0.0.16',
     packages=find_packages(),
     install_requires=[
         'requests',
         'python-magic',
         'loguru',
-        'requests_toolbelt'
+        'requests_toolbelt',
+        'events'
     ],
     author='xellDart',
     author_email='miguel@nebuia.com',

@@ -1,4 +1,3 @@
-from datetime import datetime
 import json
 import time
 from typing import ChainMap, Dict, List
@@ -324,6 +323,94 @@ class APIClient:
         except (KeyError, ValueError) as e:
             logger.error(f"Error parsing response data: {e}")
             raise
+
+    def get_documents_by_status_and_batch(self, status: StatusDocument, batch_type: BatchType, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
+        """
+        Fetches a batch of documents based on their status and batch type from the API.
+
+        This method constructs a URL using the provided status, page, and limit parameters,
+        then makes an HTTP GET request to retrieve the documents. The response is parsed
+        and converted into a list of Document objects, which are then returned along with
+        the total count of documents.
+
+        Args:
+            batch_type (BatchType): Batch type to filter documents
+            status (StatusDocument): The status of the documents to fetch. This should be an
+                enum value representing the document status.
+            page (int, optional): The page number of the results to fetch. Defaults to 1.
+            limit (int, optional): The number of documents to fetch per page. Defaults to 10.
+
+        Returns:
+            BatchDocumentsResponse: An object containing a list of Document objects and the
+                total count of documents matching the query.
+
+        Raises:
+            requests.RequestException: If there is an error while making the HTTP request.
+            KeyError: If there is an error parsing the response data due to missing keys.
+            ValueError: If there is an error parsing the response data due to invalid values.
+        """
+        url = f"{self.base_url}/integrator/documents/by/{batch_type.value}/status/{status.value}?page={page}&limit={limit}"
+
+        try:
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+
+            data = response.json()
+   
+            payload = data.get('payload', {})
+            documents_data = payload.get('documents', [])
+
+            documents = []
+            if not documents_data:
+                return BatchDocumentsResponse(
+                    documents=documents,
+                    total=payload['total']
+                )
+
+            for doc_data in documents_data:
+                entities = None
+                
+                if 'entities' in doc_data:
+                    entities = [
+                        Entity(
+                            id=entity['id'],
+                            key=entity['key'],
+                            value=entity['value'] if "value" in entity else  'no_encontrado',
+                            page=entity['page'],
+                            id_core=entity['id_core'],
+                            is_valid=entity['is_valid']
+                        ) for entity in doc_data['entities']
+                    ]
+
+                document = Document(
+                    id=doc_data['id'],
+                    batch_id=doc_data['batch_id'],
+                    user=doc_data['user'],
+                    uuid=doc_data['uuid'],
+                    url=doc_data['url'],
+                    file_name=doc_data['file_name'],
+                    type_document=doc_data['type_document'],
+                    status_document=doc_data['status_document'],
+                    uploaded=doc_data['uploaded'],
+                    reviewed_at=doc_data['reviewed_at'],
+                    source_type=doc_data['source_type'],
+                    entities=entities
+                )
+                documents.append(document)
+
+            return BatchDocumentsResponse(
+                documents=documents,
+                total=payload['total']
+            )
+
+        except requests.RequestException as e:
+            logger.error(f"Error fetching documents: {e}")
+            raise
+
+        except (KeyError, ValueError) as e:
+            logger.error(f"Error parsing response data: {e}")
+            raise
+
 
     def get_documents_by_batch(self, id_batch: str, page: int = 1, limit: int = 10) -> BatchDocumentsResponse:
         """
